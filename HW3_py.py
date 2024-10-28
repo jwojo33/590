@@ -1,9 +1,11 @@
 import numpy as np
+import scipy.io.matlab
 from scipy.linalg import expm, solve
 import scipy as sc
+from scipy.io import loadmat
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
+#import pandas as pd
 
 
 '''
@@ -30,6 +32,7 @@ def create_transmutation_matrices(fission, capture, decay):
 '''
 Q1 Part D
 Run BU eqs
+use delta t not per year***********************
 
 '''
 def function_do_burnup(N0, A, B, flux, years):
@@ -113,17 +116,21 @@ print(f"This is the changed value for U238 in the 0`s vector: {col_vec[1439]}")
 print(f"This is the changed value for Pu239 in the 0`s vector: {col_vec[1460]}")
 
 #Part B
-def load_matrix_from_excel(f_file, c_file, d_file):
+def load_matrix_from_mat(file):
     """
     Loads a 1506x1506 matrix from an Excel file.
     Assumes the matrix is on the given sheet in the Excel file.
     """
+
+    '''
     fission = pd.read_excel(f_file)
     o_f = fission.to_numpy() 
     capture = pd.read_excel(c_file)
     o_c = capture.to_numpy() 
     decay = pd.read_excel(d_file)
     d = decay.to_numpy() 
+    '''
+    fission = loadmat(file)
 
     o_c = [.2071, .4287, 1.2872, .2789]
     o_f = [.0369, .05372, .4823, 1.6214]
@@ -135,6 +142,6 @@ def load_matrix_from_excel(f_file, c_file, d_file):
 
 
 # Load matrices from Excel files
-A1,B1 = load_matrix_from_excel("fission_matrix.xlsx", "decay_matrix.xlsx", "capture_matrix.xlsx")
+A1,B1 = load_matrix_from_mat("data-Q2.mat")
 
 N_results = function_do_burnup(N0, A1, B1, 31557600 * 3e-9, 10)

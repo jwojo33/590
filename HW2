@@ -1,0 +1,101 @@
+import numpy
+import scipy
+import matplotlib
+import math
+
+
+
+def pull_mcnpx_keff(filename, keff, ksted):# gather raw data
+    file = open(filename)
+    tracker = 0
+    checker = 0
+    keff = []
+    for i in file:
+        if 'keff estimator       keff     standard deviation      68% confidence        95% confidence        99% confidence       corr' in i:
+            checker = 1
+        if checker == 1:
+            keff.append(i[0:50])
+            if tracker > 7:
+                checker = 0
+            tracker +=1
+    return keff
+    
+def post_process_mcnpx(keff, std): # calc alphas and errors for each of the 4 reactors
+    k = []
+    e = []
+    alpha_F = [] # each postion corresponds to the reactor (0-3)
+    error = []   # ^
+
+    for i in keff:
+        k.append(float(i))
+    for i in std:
+        e.append(float(i))
+
+    x = 0
+    while x <= 3:
+        alpha_F.append((1 / (k[x]**2)) * ((k[x+4] - k[x]) / 300))
+        LHS = k[x+4] * (1/(300*k[x]))**2
+        RHS = k[x] * (-k[x+4]/(300 * (k[x])**2))**2
+        error.append(math.sqrt(LHS + RHS))
+        x+=1
+
+    print(f"These are the alpha_F values in order: {alpha_F}")
+    print(f"These are the errors in alpha_F in order: {error}")
+    
+
+
+
+
+
+"""
+Part 1:
+Pull data from files
+
+"""
+
+
+k_values = [] # all the data for all k values. [ID, keff, std] ONLY COLLSION KEFF
+k_eff_coll = [] # cleaned values, only the collison k eff
+std = [] # only std values corresponding in index to the adj k_eff_coll values
+
+#get data from all 8 files
+k_values.append(pull_mcnpx_keff('out-baseline-01.txt', "k(collision)", "std"))
+k_values.append(pull_mcnpx_keff('out-baseline-02.txt', "k(collision)", "std"))
+k_values.append(pull_mcnpx_keff('out-baseline-03.txt', "k(collision)", "std"))
+k_values.append(pull_mcnpx_keff('out-baseline-04.txt', "k(collision)", "std"))
+k_values.append(pull_mcnpx_keff('out-DT-300K-01.txt', "k(collision)", "std"))
+k_values.append(pull_mcnpx_keff('out-DT-300K-02.txt', "k(collision)", "std"))
+k_values.append(pull_mcnpx_keff('out-DT-300K-03.txt', "k(collision)", "std"))
+k_values.append(pull_mcnpx_keff('out-DT-300K-04.txt', "k(collision)", "std"))
+
+#clean the data and append to each ness. list
+for i in k_values:
+    for j in i:
+        if 'collision' in j:
+            #print(j)
+            k_eff_coll.append(j[27:34])
+            std.append(j[43:50])
+        else:
+            continue
+
+#print data
+print(f"These are the k_eff for collision: {k_eff_coll}")
+print(f"These are the std for each file with corresponding k_eff values: {std}")
+
+
+
+
+
+'''
+Part 2
+Calculate delta_k and error
+
+
+Calulate 4 differnt alpha_F with eq:
+            a_F = (1/(k_0)^2) * ((k_1 - k_0)/300K)
+
+Calculate 4 different errors with a_F and std
+
+'''
+
+post_process_mcnpx(k_eff_coll, std) # this fucntion completes all the calcs and prints results

@@ -49,29 +49,60 @@ def function_do_burnup(N0, A, B, flux, years):
     Np39 = []
     Pu39 = []
     index = 0
-    
+    #N = [float(val) for val in N]
+    print(f"this is the comp: {N}")
     while index < years+1:
-        U38.append(N[index][0])
-        U39.append(N[index][1])
-        Np39.append(N[index][2])
-        Pu39.append(N[index][3])
+        U38.append(abs(float(N[index][0])))
+        U39.append(abs(float(N[index][1])))
+        Np39.append(abs(float(N[index][2])))
+        Pu39.append(abs(float(N[index][3])))
         index += 1
 
-    #print("This is U38")
-    #print(U38)
 
-    plt.plot(U38)
-    plt.title(f"U238 after {years} years")
-    plt.show()
-    plt.plot(U39)
-    plt.title(f"U239 after {years} years")
-    plt.show()
-    plt.plot(Np39)
-    plt.title(f"Np239 after {years} years")
-    plt.show()
-    plt.plot(Pu39)
-    plt.title(f"Pu239 after {years} years")
-    plt.show()
+    
+    #print("This is U38")
+    print(U39)
+    
+
+    #plt.plot(U38)
+    #plt.title(f"U238 after {years} years")
+    #plt.yscale('log')
+    #plt.show()
+    #plt.plot(U39)
+    #plt.title(f"U239 after {years} years")
+    #plt.yscale('log')
+    #plt.show()
+    #plt.plot(Np39)
+    #plt.title(f"Np239 after {years} years")
+    #plt.yscale('log')
+    #plt.show()
+    #plt.plot(Pu39)
+    #plt.title(f"Pu239 after {years} years")
+    #plt.yscale('log')
+    #plt.show()
+
+
+    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
+    axs[0, 0].plot(U38, marker='o', linestyle='-', color='blue', linewidth=2)
+    axs[0, 0].set_title(f"U238 after {years} years")
+    axs[0, 0].set_yscale('log')
+
+
+    axs[0, 1].plot(U39, marker='o', linestyle='-', color='green', linewidth=2)
+    axs[0, 1].set_title(f"U239 after {years} years")
+    axs[0, 1].set_yscale('log')
+
+    axs[1, 0].plot(Np39, marker='o', linestyle='-', color='red', linewidth=2)
+    axs[1, 0].set_title(f"Np239 after {years} years")
+    axs[1, 0].set_yscale('log')
+
+    axs[1, 1].plot(Pu39, marker='o', linestyle='-', color='purple', linewidth=2)
+    axs[1, 1].set_title(f"Pu239 after {years} years")
+    axs[1, 1].set_yscale('log')
+
+# Adjust layout to prevent overlap
+plt.tight_layout()
+plt.show()
 
 
 
@@ -91,57 +122,3 @@ print(f"This is matrix B: {B}")
 # calculate the BU
 # converted 3e15 n/cm^2-s to years or 3e-9 n/bn-s
 function_do_burnup(N0, A, B, 31557600 * 3e-9, 10)
-
-
-
-
-
-
-
-
-
-
-'''
-Question 2
-
-'''
-
-col_vec = np.zeros((1506,1))
-
-#Part A
-# replace U238 and Pu239 with found values
-col_vec[1439] = 2.73e-2 #U
-col_vec[1460] = 6.81e-3 #Pu
-print(f"This is the changed value for U238 in the 0`s vector: {col_vec[1439]}")
-print(f"This is the changed value for Pu239 in the 0`s vector: {col_vec[1460]}")
-
-#Part B
-def load_matrix_from_mat(file):
-    """
-    Loads a 1506x1506 matrix from an Excel file.
-    Assumes the matrix is on the given sheet in the Excel file.
-    """
-
-    '''
-    fission = pd.read_excel(f_file)
-    o_f = fission.to_numpy() 
-    capture = pd.read_excel(c_file)
-    o_c = capture.to_numpy() 
-    decay = pd.read_excel(d_file)
-    d = decay.to_numpy() 
-    '''
-    fission = loadmat(file)
-
-    o_c = [.2071, .4287, 1.2872, .2789]
-    o_f = [.0369, .05372, .4823, 1.6214]
-    d = [4.915703903743227e-18, 4.926419193745202e-4, 3.405151448232792e-6, 9.11013271367728e-13] *31557600
-    A = [[-(o_f[0] + o_c[0]), 0, 0, 0], [o_c[0],-(o_f[1] + o_c[1]), 0, 0], [0, 0, -(o_f[2] + o_c[2]), 0], [0, 0, 0, -(o_f[3] + o_c[3])]]
-    B = [[0,0,0,0], [0, -d[1],0,0], [0,d[1],-d[2],0], [0,0,d[2],-d[3]]]
-
-    return A,B
-
-
-# Load matrices from Excel files
-A1,B1 = load_matrix_from_mat("data-Q2.mat")
-
-N_results = function_do_burnup(N0, A1, B1, 31557600 * 3e-9, 10)

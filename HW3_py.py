@@ -1,124 +1,144 @@
 import numpy as np
-import scipy.io.matlab
-from scipy.linalg import expm, solve
-import scipy as sc
-from scipy.io import loadmat
-import numpy as np
 import matplotlib.pyplot as plt
-#import pandas as pd
+import scipy
+from scipy.linalg import solve
 
+def create_transmutation_matrices():
 
-'''
-Q1 Part C
+    data = scipy.io.loadmat('data-Q1.mat')
+    fission = data['fission']
+    capture = data['capture']
+    decay = data['lambda']
+    # Matrix A: Represents loss due to fission and capture
+    A = np.array([
+        [-(capture[0, 0] + fission[0, 0]), 0, 0, 0],
+        [capture[0, 0], -(capture[1, 0] + fission[1, 0]), 0, 0],
+        [0, 0, -(capture[2, 0] + fission[2, 0]), 0],
+        [0, 0, 0, -(capture[3, 0] + fission[3, 0])]
+    ])
 
-Header for all arrays:
-    [ U38, U39, Np39, Pu39 ]
+    # Matrix B: Represents the impact of decay
+    B = np.array([
+        [0, 0, 0, 0],
+        [0, -decay[1, 0], 0, 0],
+        [0, decay[1, 0], -decay[2, 0], 0],
+        [0, 0, decay[2, 0], -decay[3, 0]]
+    ])
 
-inputs are:
-    Fission = [ o_f_U38, o_f_U39, o_f_Np39, o_f_Pu39 ]
-    Capture = " (same format just swap with sigma_c for each isotope)
-    Decay   = [0 , -lambda_U39, +lambda_U39-lambda_Np39, +lambda_U39-lambda_Np39]
+    return A, B
 
-'''
+def chbv(H, x):
 
-def create_transmutation_matrices(fission, capture, decay):
-    # For HW3 [U38, U39, Np39, Pu39]
-    A = [[-(fission[0] + capture[0]), 0, 0, 0], [capture[0],-(fission[1] + capture[1]), 0, 0], [0, 0, -(fission[2] + capture[2]), 0], [0, 0, 0, -(fission[3] + capture[3])]]
-    B = [[0,0,0,0], [0, -decay[1],0,0], [0,decay[1],-decay[2],0], [0,0,decay[2],-decay[3]]]
-
-    return A,B
-
-
-'''
-Q1 Part D
-Run BU eqs
-use delta t not per year***********************
-
-'''
-def function_do_burnup(N0, A, B, flux, years):
-    time = 0
-    N = []
-    N.append(N0)
-    while time < years:
-        N.append(np.dot(((np.array(A) * flux) + B), N[time])) # check matrix math*********************************
-        time += 1
-    print(f"This is the new comp of isotopes after {years} years: {N}")
-
-    U38 = []
-    U39 = []
-    Np39 = []
-    Pu39 = []
-    index = 0
-    #N = [float(val) for val in N]
-    print(f"this is the comp: {N}")
-    while index < years+1:
-        U38.append(abs(float(N[index][0])))
-        U39.append(abs(float(N[index][1])))
-        Np39.append(abs(float(N[index][2])))
-        Pu39.append(abs(float(N[index][3])))
-        index += 1
-
-
+    # Coefficients and poles of the partial fraction expansion
+    alpha0 = 0.183216998528140087e-11
+    alpha = [
+        0.557503973136501826e+02 - 1j * 0.204295038779771857e+03,
+        -0.938666838877006739e+02 + 1j * 0.912874896775456363e+02,
+        0.469965415550370835e+02 - 1j * 0.116167609985818103e+02,
+        -0.961424200626061065e+01 - 1j * 0.264195613880262669e+01,
+        0.752722063978321642e+00 + 1j * 0.670367365566377770e+00,
+        -0.188781253158648576e-01 - 1j * 0.343696176445802414e-01,
+        0.143086431411801849e-03 + 1j * 0.287221133228814096e-03
+    ]
+    theta = [
+        -0.562314417475317895e+01 + 1j * 0.119406921611247440e+01,
+        -0.508934679728216110e+01 + 1j * 0.358882439228376881e+01,
+        -0.399337136365302569e+01 + 1j * 0.600483209099604664e+01,
+        -0.226978543095856366e+01 + 1j * 0.846173881758693369e+01,
+        0.208756929753827868e+00 + 1j * 0.109912615662209418e+02,
+        0.370327340957595652e+01 + 1j * 0.136563731924991884e+02,
+        0.889777151877331107e+01 + 1j * 0.166309842834712071e+02
+    ]
     
-    #print("This is U38")
-    print(U39)
+    p = 7
+    theta = [-t for t in theta]
+    alpha = [-a for a in alpha]
     
+    I = np.eye(H.shape[0], dtype=complex)  # Ensure complex dtype for compatibility
+    y = alpha0 * x.astype(complex)  # Initialize `y` with complex type
+    
+    if np.isrealobj(H) and np.isrealobj(x):
+        for i in range(p):
+            y += solve(H - theta[i] * I, alpha[i] * x)
+        y = y.real  # Convert back to real if inputs were real
+    else:
+        theta += [np.conj(t) for t in theta]
+        alpha += [0.5 * np.conj(a) for a in alpha]
+        for i in range(2 * p):
+            y += solve(H - theta[i] * I, alpha[i] * x)
+    
+    # Filter small values to zero
+    y[np.abs(y) < 1e-30] = 0
+    return y
 
-    #plt.plot(U38)
-    #plt.title(f"U238 after {years} years")
-    #plt.yscale('log')
-    #plt.show()
-    #plt.plot(U39)
-    #plt.title(f"U239 after {years} years")
-    #plt.yscale('log')
-    #plt.show()
-    #plt.plot(Np39)
-    #plt.title(f"Np239 after {years} years")
-    #plt.yscale('log')
-    #plt.show()
-    #plt.plot(Pu39)
-    #plt.title(f"Pu239 after {years} years")
-    #plt.yscale('log')
-    #plt.show()
+def do_burnup(N0, A, B, flux, years):
+    # Compute the burnup matrix H
+    H = (A * flux + B) * 3600 * 24 * 365  # Convert years to seconds
+    x = N0
 
+    # Use the chbv function to calculate the final nuclide concentrations
+    N = chbv(H, x)
+    return N
 
-    fig, axs = plt.subplots(2, 2, figsize=(10, 8))
-    axs[0, 0].plot(U38, marker='o', linestyle='-', color='blue', linewidth=2)
-    axs[0, 0].set_title(f"U238 after {years} years")
-    axs[0, 0].set_yscale('log')
+# Initial fuel
+rhorod = 15  # g/cm^3
+Zr = 0.1 * rhorod
+Ac = 0.9 * rhorod
+U238 = 0.8 * Ac
+Pu239 = 0.2 * Ac
 
+# Initial concentrations in atoms/barn-cm
+N0U238 = U238 / 238.0508 * 6.022e23 * 1e-24
+N0Pu239 = Pu239 / 239.052162 * 6.022e23 * 1e-24
+N0 = np.array([N0U238, 0, 0, N0Pu239])
 
-    axs[0, 1].plot(U39, marker='o', linestyle='-', color='green', linewidth=2)
-    axs[0, 1].set_title(f"U239 after {years} years")
-    axs[0, 1].set_yscale('log')
+flux = 3e-9  # neutrons/barn-s
+years = 10  # Number of years
 
-    axs[1, 0].plot(Np39, marker='o', linestyle='-', color='red', linewidth=2)
-    axs[1, 0].set_title(f"Np239 after {years} years")
-    axs[1, 0].set_yscale('log')
+# Create transmutation matrices
+A, B = create_transmutation_matrices()
 
-    axs[1, 1].plot(Pu39, marker='o', linestyle='-', color='purple', linewidth=2)
-    axs[1, 1].set_title(f"Pu239 after {years} years")
-    axs[1, 1].set_yscale('log')
+# Perform burnup over time
+Nnew = []
+for i in range(years):
+    N = do_burnup(N0, A, B, flux, 1)  # Burnup for one year
+    N0 = N
+    Nnew.append(N)
 
-# Adjust layout to prevent overlap
-plt.tight_layout()
+Nnew = np.array(Nnew).T  # Transpose for plotting
+
+# Time array
+time = np.arange(1, years + 1)
+
+# Plot results
+plt.figure(1)
+plt.plot(time, Nnew[0, :], '-or', label='U238')
+plt.xlabel('Time [years]')
+plt.ylabel('Concentration [atoms/barn-cm]')
+plt.title('U238')
+plt.yscale('log')
 plt.show()
 
+plt.figure(2)
+plt.plot(time, Nnew[1, :], '-og', label='U239')
+plt.xlabel('Time [years]')
+plt.ylabel('Concentration [atoms/barn-cm]')
+plt.title('U239')
+plt.yscale('log')
+plt.show()
 
+plt.figure(3)
+plt.plot(time, Nnew[2, :], '-ob', label='Np239')
+plt.xlabel('Time [years]')
+plt.ylabel('Concentration [atoms/barn-cm]')
+plt.title('Np239')
+plt.yscale('log')
+plt.show()
 
-# initalize arrays. All data from the matlab "data-Q1"
-o_c = [.2071, .4287, 1.2872, .2789]
-o_f = [.0369, .05372, .4823, 1.6214]
-decay = [4.915703903743227e-18, 4.926419193745202e-4, 3.405151448232792e-6, 9.11013271367728e-13] *31557600
-#N0 = [2.73e-2, 0, 0, 6.81e-3]
-N0 = [2.73, 0, 0, 0.681]
-
-# create and print trans. matrices
-A,B = create_transmutation_matrices(o_f, o_c, decay)
-print(f"This is matrix A: {A}")
-print(f"This is matrix B: {B}")
-
-
-# calculate the BU
-# converted 3e15 n/cm^2-s to years or 3e-9 n/bn-s
-function_do_burnup(N0, A, B, 31557600 * 3e-9, 10)
+plt.figure(4)
+plt.plot(time, Nnew[3, :], '-om', label='Pu239')
+plt.xlabel('Time [years]')
+plt.ylabel('Concentration [atoms/barn-cm]')
+plt.title('Pu239')
+plt.yscale('log')
+plt.show()

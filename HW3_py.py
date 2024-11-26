@@ -9,7 +9,7 @@ def create_transmutation_matrices():
     fission = data['fission']
     capture = data['capture']
     decay = data['lambda']
-    # Matrix A: Represents loss due to fission and capture
+
     A = np.array([
         [-(capture[0, 0] + fission[0, 0]), 0, 0, 0],
         [capture[0, 0], -(capture[1, 0] + fission[1, 0]), 0, 0],
@@ -17,7 +17,6 @@ def create_transmutation_matrices():
         [0, 0, 0, -(capture[3, 0] + fission[3, 0])]
     ])
 
-    # Matrix B: Represents the impact of decay
     B = np.array([
         [0, 0, 0, 0],
         [0, -decay[1, 0], 0, 0],
@@ -27,7 +26,7 @@ def create_transmutation_matrices():
 
     return A, B
 
-def chbv(H, x):
+def chbv(H, x):# did not include in original attempts
 
     # Coefficients and poles of the partial fraction expansion
     alpha0 = 0.183216998528140087e-11
@@ -54,63 +53,59 @@ def chbv(H, x):
     theta = [-t for t in theta]
     alpha = [-a for a in alpha]
     
-    I = np.eye(H.shape[0], dtype=complex)  # Ensure complex dtype for compatibility
-    y = alpha0 * x.astype(complex)  # Initialize `y` with complex type
+    I = np.eye(H.shape[0], dtype=complex)  # errors without "dtype=complex"
+    # use np.eye for function formation
+    y = alpha0 * x.astype(complex)
     
     if np.isrealobj(H) and np.isrealobj(x):
         for i in range(p):
             y += solve(H - theta[i] * I, alpha[i] * x)
-        y = y.real  # Convert back to real if inputs were real
+        y = y.real
     else:
         theta += [np.conj(t) for t in theta]
         alpha += [0.5 * np.conj(a) for a in alpha]
         for i in range(2 * p):
             y += solve(H - theta[i] * I, alpha[i] * x)
     
-    # Filter small values to zero
     y[np.abs(y) < 1e-30] = 0
     return y
 
 def do_burnup(N0, A, B, flux, years):
     # Compute the burnup matrix H
-    H = (A * flux + B) * 3600 * 24 * 365  # Convert years to seconds
-    x = N0
+    BU = (A * flux + B) * 3600 * 24 * 365  # Convert years to seconds
+    comp = N0
 
-    # Use the chbv function to calculate the final nuclide concentrations
-    N = chbv(H, x)
+    # CHECK THROUGH CHBV
+    N = chbv(BU, comp)
     return N
 
-# Initial fuel
-rhorod = 15  # g/cm^3
-Zr = 0.1 * rhorod
-Ac = 0.9 * rhorod
+# fuel
+rod = 15
+Zr = 0.1 * rod
+Ac = 0.9 * rod
 U238 = 0.8 * Ac
 Pu239 = 0.2 * Ac
 
-# Initial concentrations in atoms/barn-cm
+
 N0U238 = U238 / 238.0508 * 6.022e23 * 1e-24
 N0Pu239 = Pu239 / 239.052162 * 6.022e23 * 1e-24
 N0 = np.array([N0U238, 0, 0, N0Pu239])
 
 flux = 3e-9  # neutrons/barn-s
-years = 10  # Number of years
+years = 10
 
-# Create transmutation matrices
 A, B = create_transmutation_matrices()
 
-# Perform burnup over time
-Nnew = []
+Nnew = [] # initailize to append to from BU
 for i in range(years):
-    N = do_burnup(N0, A, B, flux, 1)  # Burnup for one year
+    N = do_burnup(N0, A, B, flux, 1) 
     N0 = N
     Nnew.append(N)
 
-Nnew = np.array(Nnew).T  # Transpose for plotting
-
-# Time array
+Nnew = np.array(Nnew).T  # convert to plot
 time = np.arange(1, years + 1)
 
-# Plot results
+
 plt.figure(1)
 plt.plot(time, Nnew[0, :], '-or', label='U238')
 plt.xlabel('Time [years]')
@@ -137,6 +132,62 @@ plt.show()
 
 plt.figure(4)
 plt.plot(time, Nnew[3, :], '-om', label='Pu239')
+plt.xlabel('Time [years]')
+plt.ylabel('Concentration [atoms/barn-cm]')
+plt.title('Pu239')
+plt.yscale('log')
+plt.show()
+
+
+
+# Question 2
+capture2 = np.zeros((1506, 1506))
+fission2 = np.zeros((1506, 1506))
+decay2 = np.zeros((1506, 1506))
+A2 = capture2 + fission2
+B2 = decay2
+
+# set point in the 0 array
+N0_2 = np.array([N0U238, 0, 0, N0Pu239])
+cv = np.zeros(1506)
+cv[1439] = N0_2[0]  # U238 index
+cv[1460] = N0_2[3]  # Pu239 index
+
+Nnew2 = []
+for i in range(years):
+    N2 = do_burnup(cv, A2, B2, flux, 1) 
+    cv = N2
+    Nnew2.append(N2)
+
+Nnew2 = np.array(Nnew2).T
+
+
+plt.figure(5)
+plt.plot(time, Nnew2[1439, :], '-or', label='U238')
+plt.xlabel('Time [years]')
+plt.ylabel('Concentration [atoms/barn-cm]')
+plt.title('U238')
+plt.yscale('log')
+plt.show()
+
+plt.figure(6)
+plt.plot(time, Nnew2[1440, :], '-og', label='U239')
+plt.xlabel('Time [years]')
+plt.ylabel('Concentration [atoms/barn-cm]')
+plt.title('U239')
+plt.yscale('log')
+plt.show()
+
+plt.figure(7)
+plt.plot(time, Nnew2[1450, :], '-ob', label='Np239')
+plt.xlabel('Time [years]')
+plt.ylabel('Concentration [atoms/barn-cm]')
+plt.title('Np239')
+plt.yscale('log')
+plt.show()
+
+plt.figure(8)
+plt.plot(time, Nnew2[1460, :], '-om', label='Pu239')
 plt.xlabel('Time [years]')
 plt.ylabel('Concentration [atoms/barn-cm]')
 plt.title('Pu239')

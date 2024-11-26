@@ -1,0 +1,49 @@
+import numpy as np
+
+length = 1000  # microgrid [km]
+wooden_cost = 755000 # [$]
+concrete_cost = 1864000 # [$]
+t = 20  # time [yrs]
+
+# Hurricanes
+cat = {
+    "Cat3": {"wind_speed": 125, "annual_prob": 0.08},
+    "Cat4": {"wind_speed": 145, "annual_prob": 0.05},
+    "Cat5": {"wind_speed": 180, "annual_prob": 0.01}
+}
+
+# Fail probs with wind speeds [mph]
+def failure_prob(wind_speed, material="wood"):
+    if material == "wood":
+        return 2e-07 * np.exp(0.0834 * wind_speed)
+    elif material == "concrete":
+        return 2e-08 * np.exp(0.0834 * wind_speed)
+
+# Initial costs
+initial_wooden_cost = wooden_cost * length
+initial_concrete_cost = concrete_cost * length
+
+# Annual rebuilding cost 
+def annual_rebuilding_cost(material="wood"):
+    annual_cost = 0
+    for category, data in cat.items():
+        fail_prob = failure_prob(data["wind_speed"], material)
+        occurrence_prob = data["annual_prob"]
+        rebuild_cost_per_km = wooden_cost if material == "wood" else concrete_cost
+        total_rebuild_cost = rebuild_cost_per_km * length
+        annual_cost += total_rebuild_cost * fail_prob * occurrence_prob
+    return annual_cost
+
+# 20-year total costs
+annual_rebuilding_cost_wood = annual_rebuilding_cost("wood")
+annual_rebuilding_cost_concrete = annual_rebuilding_cost("concrete")
+total_wood_cost = initial_wooden_cost + (annual_rebuilding_cost_wood * t)
+total_concrete_cost = initial_concrete_cost + (annual_rebuilding_cost_concrete * t)
+
+
+print("Initial Cost (Wooden Poles):", initial_wooden_cost)
+print("Initial Cost (Concrete Poles):", initial_concrete_cost)
+print("Annual Rebuilding Cost (Wooden Poles):", annual_rebuilding_cost_wood)
+print("Annual Rebuilding Cost (Concrete Poles):", annual_rebuilding_cost_concrete)
+print("Total 20-Year Cost (Wooden Poles):", total_wood_cost)
+print("Total 20-Year Cost (Concrete Poles):", total_concrete_cost)

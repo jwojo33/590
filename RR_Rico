@@ -1,49 +1,110 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
-length = 1000  # microgrid [km]
-wooden_cost = 755000 # [$]
-concrete_cost = 1864000 # [$]
-t = 20  # time [yrs]
+length_km = 1000  # Length of the grid in km
+costs_per_km = {"wooden": 755_000, "concrete": 1_864_000, "hybrid": 1_198_000}
+years = 20
 
-# Hurricanes
-cat = {
-    "Cat3": {"wind_speed": 125, "annual_prob": 0.08},
-    "Cat4": {"wind_speed": 145, "annual_prob": 0.05},
-    "Cat5": {"wind_speed": 180, "annual_prob": 0.01}
+def failure_probability(wind_speed, material):
+    fragility_base = {"wooden": 2e-07, "concrete": 2e-08, "hybrid": 5e-08}
+    return fragility_base[material] * np.exp(0.0834 * wind_speed)
+
+# Hurricane categories and wind speeds
+categories = {
+    "Cat3": {"wind_speed": 120},
+    "Cat4": {"wind_speed": 142},
+    "Cat5": {"wind_speed": 180},
+}
+M4_speed = {
+    "Cat3": {"wind_speed": 130},
+    "Cat4": {"wind_speed": 157},
+    "Cat5": {"wind_speed": 180},
 }
 
-# Fail probs with wind speeds [mph]
-def failure_prob(wind_speed, material="wood"):
-    if material == "wood":
-        return 2e-07 * np.exp(0.0834 * wind_speed)
-    elif material == "concrete":
-        return 2e-08 * np.exp(0.0834 * wind_speed)
+models = {
+    "Model1": {"Cat3": 0.08, "Cat4": 0.05, "Cat5": 0.01},
+    "Model2": {"Cat3": 0.07, "Cat4": 0.06, "Cat5": 0.03},
+}
 
-# Initial costs
-initial_wooden_cost = wooden_cost * length
-initial_concrete_cost = concrete_cost * length
+def dynamic_model_3_4(year):
+    return {
+        "Cat3": 0.08 + 0.015 * year,
+        "Cat4": 0.05 + 0.015 * year,
+        "Cat5": 0.01 + 0.02 * year,
+    }
 
-# Annual rebuilding cost 
-def annual_rebuilding_cost(material="wood"):
-    annual_cost = 0
-    for category, data in cat.items():
-        fail_prob = failure_prob(data["wind_speed"], material)
-        occurrence_prob = data["annual_prob"]
-        rebuild_cost_per_km = wooden_cost if material == "wood" else concrete_cost
-        total_rebuild_cost = rebuild_cost_per_km * length
-        annual_cost += total_rebuild_cost * fail_prob * occurrence_prob
-    return annual_cost
+# Discount rates
+discount_rates = [0.02, 0.05]
 
-# 20-year total costs
-annual_rebuilding_cost_wood = annual_rebuilding_cost("wood")
-annual_rebuilding_cost_concrete = annual_rebuilding_cost("concrete")
-total_wood_cost = initial_wooden_cost + (annual_rebuilding_cost_wood * t)
-total_concrete_cost = initial_concrete_cost + (annual_rebuilding_cost_concrete * t)
+# Calculate expected damages for a single year
+def annual_expected_damage(material, model, year):
+    annual_damage = 0
+    if model in models:
+        probabilities = models[model]
+    else:  # Dynamic probabilities for Models 3 and 4
+        probabilities = dynamic_model_3_4(year)
+    for category, data in categories.items():
+        prob = probabilities[category]
+        wind_speed = data["wind_speed"]
+        if model == "Model4":
+            if category == "Cat3":
+                #print("130")
+                wind_speed = 130
+            elif category == "Cat4":
+                #print("157")
+                wind_speed = 157
+        failure_prob = failure_probability(wind_speed, material)
+        rebuild_cost = costs_per_km[material] * length_km
+        annual_damage += prob * failure_prob * rebuild_cost
+    return annual_damage
+
+def discounted_cost(material, model, discount_rate):
+    total_damage = 0
+    for year in range(1, years + 1):
+        annual_damage = annual_expected_damage(material, model, year)
+        total_damage += annual_damage / ((1 + discount_rate) ** year)
+    construction_cost = costs_per_km[material] * length_km
+    return construction_cost + total_damage
+
+# array for results
+results = {}
+for material in costs_per_km.keys():
+    for model in ["Model1", "Model2", "Model3", "Model4"]:
+        for discount_rate in discount_rates:
+            scenario = f"{material.capitalize()} - {model} - {int(discount_rate * 100)}%"
+            results[scenario] = discounted_cost(material, model, discount_rate)
 
 
-print("Initial Cost (Wooden Poles):", initial_wooden_cost)
-print("Initial Cost (Concrete Poles):", initial_concrete_cost)
-print("Annual Rebuilding Cost (Wooden Poles):", annual_rebuilding_cost_wood)
-print("Annual Rebuilding Cost (Concrete Poles):", annual_rebuilding_cost_concrete)
-print("Total 20-Year Cost (Wooden Poles):", total_wood_cost)
-print("Total 20-Year Cost (Concrete Poles):", total_concrete_cost)
+
+min_cost = min(results.values())
+
+# use to compare to the min_regret_option
+#regret = {scenario: cost - min_cost for scenario, cost in results.items()}
+
+regret = {scenario: cost for scenario, cost in results.items()}
+min_regret_option = min(regret, key=regret.get)
+
+
+scenarios = list(regret.keys())
+values = list(regret.values())
+
+# show all the costs for all senarios
+print(results)
+
+plt.figure(figsize=(12, 8))
+plt.barh(scenarios, values, color='skyblue')
+plt.xlabel("Regret ($)", fontsize=14)
+plt.ylabel("Scenario", fontsize=14)
+plt.title("Regret for Each Scenario", fontsize=16)
+plt.tight_layout()
+plt.show()
+
+results, min_regret_option
+
+"""
+for i in results:
+    print(i)
+print()
+"""
+#print(min_regret_option)
+

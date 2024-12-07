@@ -1,0 +1,87 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.linalg import solve
+from scipy.io import loadmat
+
+def get_hessian(tg, I0, sig, N, I, num_materials):
+    # hessian from mat
+    exponent = -(N[:, None] * tg) @ sig
+    exponent = np.clip(exponent, -700, 700)  # overflow throws errors .clip to prevent
+    P = np.exp(exponent)
+    
+    DI = I0 * P - I  # DI = delta I
+
+    # (grad Q)
+    dQdt = np.zeros(num_materials)
+    for j in range(num_materials):
+        dQdt[j] = -2 * np.sum(DI * I0 * N[j] * sig[j, :] * P)
+
+    # H matrix
+    H = np.zeros((num_materials, num_materials))
+    for j in range(num_materials):
+        for k in range(num_materials):
+            x1 = N[j] * N[k]
+            x2 = sig[j, :] if j == k else sig[k, :]
+            H[j, k] = 2 * x1 * np.sum(x2 * I0 * (P**2 * x2 * I0 + DI * P * x2))
+
+    # stable the values. 
+    # (.eye) 'Return a 2-D array with ones on the diagonal and zeros elsewhere'
+    H += np.eye(num_materials) * 1e-5
+
+    return H, dQdt
+
+def N_materials(nMats, beam_file):
+
+    input_data = loadmat("input_data.mat")
+    beam_data = loadmat(beam_file)
+    #print(f"This is the mat file: {beam_data}")
+    
+    I0 = input_data["I0"].flatten()  # Incoming beam spectrum
+    E = input_data["E"].flatten()   # E bins
+    sig = input_data["sig"][:nMats]  # Select only nMats material rows
+    N = input_data["N"].flatten()[:nMats]  # N's for nMats material
+    I = beam_data["I"].flatten()  # Measured beam spectrum
+
+    # initial guess for thicknesses
+    tg = np.ones(nMats)
+
+    # Newton method
+    for n_meth in range(10):
+        H, gradQ = get_hessian(tg, I0, sig, N, I, nMats)
+        if np.any(np.isnan(H)) or np.any(np.isnan(gradQ)):
+            raise ValueError("Numerical instability detected: NaN values in Hessian or gradient.")
+        if np.any(np.isinf(H)) or np.any(np.isinf(gradQ)):
+            raise ValueError("Numerical instability detected: Inf values in Hessian or gradient.")
+        tg = tg - solve(H, gradQ)  # solve thicknesses
+
+    # final
+    for i, thickness in enumerate(tg, 1):
+        print(f"Thickness of material {i} is {thickness:.2f} cm")
+
+    # predicted intensity
+    theExp = -(N[:, None] * tg) @ sig
+    theExp = np.clip(theExp, -700, 700)  # Prevent overflow
+    Ip = I0 * np.exp(theExp)
+
+    # Sum predicted intensities across materials to match the measured data
+    Ip_sum = Ip.sum(axis=0)
+
+    plt.figure()
+    plt.plot(E * 1e-3, I0, label=r"$I_0$")  # Initial beam intensity
+    plt.plot(E * 1e-3, Ip_sum, label=r"$I_p$")  #  predicted intensity
+    plt.plot(E * 1e-3, I, '--g', label=r"$I$")  # Measured intensity
+    plt.xlabel('Energy [keV]')
+    plt.ylabel('Intensity')
+    plt.legend()
+    plt.title(f'N Materials Problem ({nMats} Materials)')
+    plt.show()
+
+
+
+# Console inputs:
+
+# 2 mat
+N_materials(2, "beam_out_two_materials.mat")
+
+# 3 mat
+N_materials(3, "beam_out_three_materials.mat")

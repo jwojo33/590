@@ -67,9 +67,9 @@ def N_materials(nMats, beam_file):
     Ip_sum = Ip.sum(axis=0)
 
     plt.figure()
-    plt.plot(E * 1e-3, I0, label=r"$I_0$")  # Initial beam intensity
-    plt.plot(E * 1e-3, Ip_sum, label=r"$I_p$")  #  predicted intensity
-    plt.plot(E * 1e-3, I, '--g', label=r"$I$")  # Measured intensity
+    plt.plot(E * 1e-3, I0, label=r"Initial: $I_0$")  # Initial beam intensity
+    plt.plot(E * 1e-3, Ip_sum, label=r"Predicted I: $I_p$")  #  predicted intensity
+    plt.plot(E * 1e-3, I, '--g', label=r"Measured: $I$")  # Measured intensity
     plt.xlabel('Energy [keV]')
     plt.ylabel('Intensity')
     plt.legend()
@@ -78,7 +78,7 @@ def N_materials(nMats, beam_file):
 
 
 
-# Console inputs:
+# Console outputs:
 
 # 2 mat
 N_materials(2, "beam_out_two_materials.mat")
